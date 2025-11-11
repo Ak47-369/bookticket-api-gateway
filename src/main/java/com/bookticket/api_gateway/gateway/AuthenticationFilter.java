@@ -14,6 +14,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Component
 @Slf4j
 public class AuthenticationFilter implements GlobalFilter, Ordered {
@@ -54,7 +58,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
             Claims claims = jwtUtil.extractAllClaims(token);
             String userId = claims.getSubject().toString();
-            String roles = claims.get("roles").toString();
+            String roles = jwtUtil.extractRoles(claims);
+            // To DO - Add X-User-Name
 
             if (!roles.contains("ADMIN") && !roles.contains("USER")) {
                 log.error("User does not have the required role");

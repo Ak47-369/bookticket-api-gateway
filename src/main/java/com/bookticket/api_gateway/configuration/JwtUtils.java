@@ -6,8 +6,12 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -37,6 +41,17 @@ public class JwtUtils {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    @SuppressWarnings("unchecked")
+    public String extractRoles(Claims claims) {
+        List<Map<String, String>> rolesMap = claims.get("roles", List.class);
+        if (rolesMap == null) {
+            return "";
+        }
+        return rolesMap.stream()
+                .map(roleMap -> roleMap.get("authority"))
+                .collect(Collectors.joining(","));
     }
 
     private Boolean isTokenExpired(String token) {
