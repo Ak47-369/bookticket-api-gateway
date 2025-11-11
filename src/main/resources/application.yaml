@@ -17,6 +17,15 @@ spring:
           uri: lb://user-service
           predicates:
             - Path=/api/v1/users/** # Route all user requests to user-service
+        - id: movie-service
+          uri: lb://movie-service
+          predicates:
+            - Path=/api/v1/movies/** # Route all movie requests to movie-service
+        - id : theater-service
+          uri: lb://theater-service
+          predicates:
+            - Path=/api/v1/theaters/** # Route all theater requests to theater-service
+            - Path=/api/v1/shows/** # Route all show requests to show-service
 eureka:
   client:
     service-url:

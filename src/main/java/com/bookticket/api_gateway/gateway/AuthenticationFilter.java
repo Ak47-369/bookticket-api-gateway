@@ -56,7 +56,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             String userId = claims.getSubject().toString();
             String roles = claims.get("roles").toString();
 
-            if (!roles.contains("ROLE_ADMIN") && !roles.contains("ROLE_USER")) {
+            if (!roles.contains("ADMIN") && !roles.contains("USER")) {
                 log.error("User does not have the required role");
                 return this.onError(exchange, HttpStatus.FORBIDDEN);
             }
