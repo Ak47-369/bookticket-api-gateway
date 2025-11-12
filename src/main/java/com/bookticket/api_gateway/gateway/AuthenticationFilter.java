@@ -76,6 +76,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, HttpStatus httpStatus) {
+        log.error("Error in Gateway: {}", httpStatus);
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(httpStatus);
         return response.setComplete();
