@@ -21,10 +21,6 @@ spring:
           uri: lb://movie-service
           predicates:
             - Path=/api/v1/movies/** # Route all movie requests to movie-service
-        - id: theater-service-admin
-          uri: lb://theater-service
-          predicates:
-            - Path=/api/v1/admin/theaters/** # Route all admin theater requests to theater-service
         - id: theater-service
           uri: lb://theater-service
           predicates:
@@ -33,6 +29,14 @@ spring:
           uri: lb://theater-service
           predicates:
             - Path=/api/v1/shows/** # Route all show requests to show-service
+        - id: screen-service
+          uri: lb://theater-service
+          predicates:
+            - Path=/api/v1/screens/** # Route all screen requests to screen-service
+        - id: booking-service
+          uri: lb://booking-service
+          predicates:
+            - Path=/api/v1/bookings/** # Route all booking requests to booking-service
 eureka:
   client:
     service-url:
