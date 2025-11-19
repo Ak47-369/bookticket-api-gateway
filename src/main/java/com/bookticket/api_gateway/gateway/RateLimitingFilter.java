@@ -1,8 +1,8 @@
 package com.bookticket.api_gateway.gateway;
 
+import com.bookticket.api_gateway.configuration.JwtUtils;
 import com.bookticket.api_gateway.ratelimit.RedisRateLimiterService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -20,19 +20,28 @@ import java.util.Objects;
 public class RateLimitingFilter implements GlobalFilter, Ordered {
 
     private final RedisRateLimiterService rateLimiterService;
+    private final JwtUtils jwtUtils;
+    private final RouterValidator routerValidator;
 
-    @Autowired
-    public RateLimitingFilter(RedisRateLimiterService rateLimiterService) {
+    public RateLimitingFilter(RedisRateLimiterService rateLimiterService,
+                             JwtUtils jwtUtils,
+                             RouterValidator routerValidator) {
         this.rateLimiterService = rateLimiterService;
+        this.jwtUtils = jwtUtils;
+        this.routerValidator = routerValidator;
     }
 
     @Override
     public int getOrder() {
-        return -2; // Run before AuthenticationFilter (which has order -1)
+        return -2; // Run before AuthenticationFilter
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        // Check if Rate Limiting is enabled or not
+        if (!rateLimiterService.isEnabled()) {
+            return chain.filter(exchange);
+        }
         ServerHttpRequest request = exchange.getRequest();
         
         // Get rate limit key - prefer user ID from header, fallback to IP address
@@ -61,17 +70,35 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
 
     /**
      * Get the rate limit key from the request
-     * Priority: X-User-ID header > IP address
+     * Priority:
+     * 1. X-User-ID header (for inter-service requests that already have user context)
+     * 2. Extract from JWT token (for direct user requests)
+     * 3. IP address (for unauthenticated requests)
      */
     private String getRateLimitKey(ServerHttpRequest request) {
-        // Check if user ID is available in header (from previous authenticated requests)
+        // Check if user ID is available in header (from inter-service requests)
         String userId = request.getHeaders().getFirst("X-User-ID");
         if (userId != null && !userId.isEmpty()) {
+            log.debug("Using X-User-ID from header for rate limiting: {}", userId);
             return "user:" + userId;
         }
-        
-        // Fallback to IP address
+
+        // Try to extract user ID from JWT token for authenticated requests
+        if (routerValidator.isSecured.test(request)) {
+            String authHeader = request.getHeaders().getFirst("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
+                userId = jwtUtils.extractUserId(token);
+                if (userId != null && !userId.isEmpty()) {
+                    log.debug("Extracted user ID from JWT token for rate limiting: {}", userId);
+                    return "user:" + userId;
+                }
+            }
+        }
+
+        // Fallback to IP address for unauthenticated requests or if JWT extraction fails
         String ipAddress = getClientIpAddress(request);
+        log.debug("Using IP address for rate limiting: {}", ipAddress);
         return "ip:" + ipAddress;
     }
 

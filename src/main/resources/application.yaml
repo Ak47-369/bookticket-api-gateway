@@ -1,6 +1,12 @@
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      timeout: 2000ms
   cloud:
     config:
       enabled: false # Disable Config Server, Later we will use Centralized Config Server
@@ -47,6 +53,12 @@ app:
   jwt:
     jwt-secret: ${JWT_SECRET}
     jwt-expiration: ${JWT_EXPIRY_TIME}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED}
+    prefix: ${RATE_LIMIT_PREFIX}
+    tokens-per-second: ${TOKENS_PER_SECOND}
+    tokens-per-minute: ${TOKENS_PER_MINUTE}
+    bucket-capacity: ${TOKENS_PER_MINUTE}
 logging:
   level:
     com.bookticket.api_gateway: DEBUG

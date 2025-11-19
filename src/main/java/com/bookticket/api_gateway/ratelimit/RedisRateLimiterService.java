@@ -2,112 +2,106 @@ package com.bookticket.api_gateway.ratelimit;
 
 import com.bookticket.api_gateway.configuration.RateLimitConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-import java.util.Arrays;
+import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
+/**
+ * Redis-based rate limiter service using Token Bucket algorithm.
+ * Provides distributed rate limiting across multiple gateway instances.
+ * Uses synchronous RedisTemplate wrapped in Mono for reactive compatibility.
+ */
 @Service
 @Slf4j
 public class RedisRateLimiterService {
 
-    private final ReactiveRedisTemplate<String, String> redisTemplate;
-    private final RateLimitConfig rateLimitConfig;
-    
-    // Lua script for atomic token bucket rate limiting
-    private static final String RATE_LIMIT_SCRIPT = 
-        "local key = KEYS[1]\n" +
-        "local capacity = tonumber(ARGV[1])\n" +
-        "local tokens_per_second = tonumber(ARGV[2])\n" +
-        "local requested_tokens = tonumber(ARGV[3])\n" +
-        "local now = tonumber(ARGV[4])\n" +
-        "\n" +
-        "local bucket = redis.call('HMGET', key, 'tokens', 'last_refill')\n" +
-        "local tokens = tonumber(bucket[1])\n" +
-        "local last_refill = tonumber(bucket[2])\n" +
-        "\n" +
-        "if tokens == nil then\n" +
-        "  tokens = capacity\n" +
-        "  last_refill = now\n" +
-        "end\n" +
-        "\n" +
-        "-- Calculate tokens to add based on time elapsed\n" +
-        "local time_elapsed = now - last_refill\n" +
-        "local tokens_to_add = time_elapsed * tokens_per_second\n" +
-        "tokens = math.min(capacity, tokens + tokens_to_add)\n" +
-        "last_refill = now\n" +
-        "\n" +
-        "local allowed = 0\n" +
-        "if tokens >= requested_tokens then\n" +
-        "  tokens = tokens - requested_tokens\n" +
-        "  allowed = 1\n" +
-        "end\n" +
-        "\n" +
-        "redis.call('HMSET', key, 'tokens', tokens, 'last_refill', last_refill)\n" +
-        "redis.call('EXPIRE', key, 120)\n" +
-        "\n" +
-        "return {allowed, tokens}";
+    private static final int REQUESTED_TOKENS = 1;
 
+    private final RedisTemplate<String, String> scriptRedisTemplate;
     private final RedisScript<List> rateLimitScript;
+    private final RateLimitConfig rateLimitConfig;
 
-    public RedisRateLimiterService(ReactiveRedisTemplate<String, String> redisTemplate, 
-                                   RateLimitConfig rateLimitConfig) {
-        this.redisTemplate = redisTemplate;
+    public RedisRateLimiterService(
+            @Qualifier("scriptRedisTemplate") RedisTemplate<String, String> scriptRedisTemplate,
+            @Qualifier("rateLimitScript") RedisScript<List> rateLimitScript,
+            RateLimitConfig rateLimitConfig) {
+        this.scriptRedisTemplate = scriptRedisTemplate;
+        this.rateLimitScript = rateLimitScript;
         this.rateLimitConfig = rateLimitConfig;
-        this.rateLimitScript = RedisScript.of(RATE_LIMIT_SCRIPT, List.class);
+        log.info("RedisRateLimiterService initialized with config: {} tokens/sec, {} bucket capacity",
+                rateLimitConfig.getTokensPerSecond(), rateLimitConfig.getBucketCapacity());
     }
 
     /**
-     * Check if the request is allowed based on token bucket rate limiting
-     * @param key The rate limit key (e.g., user ID or IP address)
-     * @return Mono<Boolean> true if allowed, false if rate limited
+     * Check if the request is allowed based on token bucket rate limiting.
+     * Uses default of 1 token per request.
+     *
+     * @param key The rate limit key (e.g., "user:123" or "ip:192.168.1.1")
+     * @return Mono<RateLimitResult> containing whether request is allowed and remaining tokens
      */
     public Mono<RateLimitResult> isAllowed(String key) {
-        return isAllowed(key, 1);
+        return isAllowed(key, REQUESTED_TOKENS);
+    }
+
+    public boolean isEnabled() {
+        return rateLimitConfig.isEnabled();
     }
 
     /**
-     * Check if the request is allowed based on token bucket rate limiting
-     * @param key The rate limit key (e.g., user ID or IP address)
+     * Check if the request is allowed based on token bucket rate limiting.
+     * Executes Lua script synchronously and wraps result in Mono for reactive compatibility.
+     *
+     * @param key The rate limit key (e.g., "user:123" or "ip:192.168.1.1")
      * @param requestedTokens Number of tokens to consume
      * @return Mono<RateLimitResult> containing whether request is allowed and remaining tokens
      */
     public Mono<RateLimitResult> isAllowed(String key, int requestedTokens) {
-        String redisKey = "rate_limit:" + key;
-        long now = System.currentTimeMillis() / 1000; // Current time in seconds
-        
-        List<String> keys = Arrays.asList(redisKey);
-        List<String> args = Arrays.asList(
-            String.valueOf(rateLimitConfig.getBucketCapacity()),
-            String.valueOf(rateLimitConfig.getTokensPerSecond()),
-            String.valueOf(requestedTokens),
-            String.valueOf(now)
-        );
+        return Mono.fromCallable(() -> {
+            String redisKey = rateLimitConfig.getPrefix() + ":" + key;
+            long nowInSeconds = Instant.now().getEpochSecond();
 
-        return redisTemplate.execute(rateLimitScript, keys, args)
-            .map(result -> {
+            try {
+                List result = scriptRedisTemplate.execute(
+                        rateLimitScript,
+                        Collections.singletonList(redisKey),
+                        String.valueOf(rateLimitConfig.getBucketCapacity()),
+                        String.valueOf(rateLimitConfig.getTokensPerSecond()),
+                        String.valueOf(requestedTokens),
+                        String.valueOf(nowInSeconds)
+                );
+
                 if (result != null && result.size() >= 2) {
-                    Long allowed = (Long) result.get(0);
-                    Double remainingTokens = Double.parseDouble(result.get(1).toString());
+                    long allowed = ((Number) result.get(0)).longValue();
+                    double remainingTokens = ((Number) result.get(1)).doubleValue();
                     boolean isAllowed = allowed == 1;
-                    
-                    log.debug("Rate limit check for key {}: allowed={}, remaining tokens={}", 
-                             key, isAllowed, remainingTokens);
-                    
+
+                    if (isAllowed) {
+                        log.debug("Rate limit check for key '{}': ALLOWED, remaining tokens: {:.2f}",
+                                key, remainingTokens);
+                    } else {
+                        log.warn("Rate limit check for key '{}': EXCEEDED, remaining tokens: {:.2f}",
+                                key, remainingTokens);
+                    }
+
                     return new RateLimitResult(isAllowed, remainingTokens);
                 }
-                log.warn("Unexpected result from rate limit script for key {}", key);
+
+                log.warn("Unexpected result from rate limit script for key '{}': {}", key, result);
                 return new RateLimitResult(false, 0.0);
-            })
-            .onErrorResume(e -> {
-                log.error("Error checking rate limit for key {}: {}", key, e.getMessage());
-                // Fail open - allow request if Redis is down
-                return Mono.just(new RateLimitResult(true, 0.0));
-            });
+
+            } catch (Exception e) {
+                log.error("Error executing rate limiter script for key '{}'. Failing open (allowing request). Error: {}",
+                        key, e.getMessage(), e);
+                // Fail open - allow request if Redis is unavailable
+                return new RateLimitResult(true, rateLimitConfig.getBucketCapacity());
+            }
+        });
     }
 
     /**

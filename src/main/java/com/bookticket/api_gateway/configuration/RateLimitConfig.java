@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 @Setter
 @Component
 public class RateLimitConfig {
-    private double tokensPerSecond = 1.66; // 1.66 tokens per second
-    private int tokensPerMinute = 100; // 100 tokens per minute
-    private int bucketCapacity = 100; // Maximum tokens in bucket
+    private double tokensPerSecond;
+    private int tokensPerMinute;
+    private int bucketCapacity;
+    private String prefix;
+    private boolean enabled;
 }
 

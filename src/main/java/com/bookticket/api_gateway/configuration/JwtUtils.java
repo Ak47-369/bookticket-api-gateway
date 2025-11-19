@@ -54,6 +54,21 @@ public class JwtUtils {
                 .collect(Collectors.joining(","));
     }
 
+    public String extractUserId(String token) {
+        try {
+            if (token == null || token.isEmpty()) {
+                return null;
+            }
+            if (validateToken(token)) {
+                return extractSubject(token);
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("Failed to extract user ID from token: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
