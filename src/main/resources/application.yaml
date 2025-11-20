@@ -1,64 +1,7 @@
 spring:
   application:
     name: api-gateway
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
-      timeout: 2000ms
-  cloud:
-    config:
-      enabled: false # Disable Config Server, Later we will use Centralized Config Server
-    gateway:
-      discovery:
-        locator:
-          enabled: true #Enabled routing based on service discovery
-      routes:
-        - id: user-service-auth
-          uri: lb://user-service
-          predicates:
-            - Path=/api/v1/auth/** # Route all auth requests to user-service
-        - id: user-service-info
-          uri: lb://user-service
-          predicates:
-            - Path=/api/v1/users/** # Route all user requests to user-service
-        - id: movie-service
-          uri: lb://movie-service
-          predicates:
-            - Path=/api/v1/movies/** # Route all movie requests to movie-service
-        - id: theater-service
-          uri: lb://theater-service
-          predicates:
-            - Path=/api/v1/theaters/** # Route all theater requests to theater-service
-        - id: show-service
-          uri: lb://theater-service
-          predicates:
-            - Path=/api/v1/shows/** # Route all show requests to show-service
-        - id: screen-service
-          uri: lb://theater-service
-          predicates:
-            - Path=/api/v1/screens/** # Route all screen requests to screen-service
-        - id: booking-service
-          uri: lb://booking-service
-          predicates:
-            - Path=/api/v1/bookings/** # Route all booking requests to booking-service
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-server:
-  port: 8080
-app:
-  jwt:
-    jwt-secret: ${JWT_SECRET}
-    jwt-expiration: ${JWT_EXPIRY_TIME}
-  rate-limit:
-    enabled: ${RATE_LIMIT_ENABLED}
-    prefix: ${RATE_LIMIT_PREFIX}
-    tokens-per-second: ${TOKENS_PER_SECOND}
-    tokens-per-minute: ${TOKENS_PER_MINUTE}
-    bucket-capacity: ${TOKENS_PER_MINUTE}
-logging:
-  level:
-    com.bookticket.api_gateway: DEBUG
+  config:
+    import: optional:configserver:http://localhost:8888
+  profiles:
+    active: prod
