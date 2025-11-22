@@ -30,6 +30,7 @@
 		<java.version>17</java.version>
 		<spring-cloud.version>2024.0.2</spring-cloud.version>
         <jjwt.version>0.12.5</jjwt.version>
+        <springdoc.version>2.7.0</springdoc.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -87,6 +88,11 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

@@ -39,6 +39,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
+        log.info("Request URI: {}", request.getURI());
         if (routerValidator.isSecured.test(request)) {
             if (!request.getHeaders().containsKey("Authorization")) {
                 log.error("Authorization header is missing");
