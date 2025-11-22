@@ -60,7 +60,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             Claims claims = jwtUtil.extractAllClaims(token);
             String userId = claims.getSubject().toString();
             String roles = jwtUtil.extractRoles(claims);
-            // To DO - Add X-User-Name
+            String username = claims.get("username").toString();
 
             if (!roles.contains("ADMIN") && !roles.contains("USER")) {
                 log.error("User does not have the required role");
@@ -70,6 +70,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             ServerHttpRequest newRequest = request.mutate()
                     .header("X-User-ID", userId) // Immutable User ID
                     .header("X-User-Roles", roles)
+                    .header("X-User-Name", username)
                     .build();
             return chain.filter(exchange.mutate().request(newRequest).build());
         }
