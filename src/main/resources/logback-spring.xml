@@ -36,6 +36,8 @@
                 <username>${LOKI_USER}</username>
                 <password>${LOKI_PASS}</password>
             </auth>
+            <connectionTimeoutMs>120000</connectionTimeoutMs>
+            <requestTimeoutMs>120000</requestTimeoutMs>
         </http>
         <format>
             <label>
