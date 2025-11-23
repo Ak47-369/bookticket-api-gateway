@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 1. Include Spring defaults -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <springProperty scope="context" name="service_name" source="spring.application.name" defaultValue="unknown-service"/>
+    <springProperty scope="context" name="LOKI_URL" source="loki.url"/>
+    <springProperty scope="context" name="LOKI_USER" source="loki.username"/>
+    <springProperty scope="context" name="LOKI_PASS" source="loki.password"/>
+    <property name="CONSOLE_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [${service_name}] [%thread] %-5level %logger{36} [traceId=%X{traceId:-}, spanId=%X{spanId:-}, requestId=%X{requestId:-}] - %msg%n"/>
+
+    <appender name="CONSOLE_PRETTY" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timestamp/>
+            <version/>
+            <message/>
+            <loggerName/>
+            <threadName/>
+            <level/>
+            <levelValue/>
+            <mdc/>
+            <stackTrace/>
+        </encoder>
+    </appender>
+
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>${LOKI_URL}</url>
+            <auth>
+                <username>${LOKI_USER}</username>
+                <password>${LOKI_PASS}</password>
+            </auth>
+        </http>
+        <format>
+            <label>
+                <pattern>app=${service_name},host=${HOSTNAME},level=%level,traceID=%X{traceId:-NONE}</pattern>
+            </label>
+            <message>
+                <class>com.github.loki4j.logback.JsonLayout</class>
+            </message>
+        </format>
+    </appender>
+
+
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_PRETTY"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+        
+        <logger name="com.bookticket.${service_name}" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE_PRETTY"/>
+            <appender-ref ref="LOKI"/>
+        </logger>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+        
+        <logger name="com.bookticket.${service_name}" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE_JSON"/>
+            <appender-ref ref="LOKI"/>
+        </logger>
+    </springProfile>
+
+</configuration>
