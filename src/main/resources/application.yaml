@@ -1,7 +1,33 @@
 spring:
   application:
     name: api-gateway
-  config:
-    import: optional:configserver:http://localhost:8888
   profiles:
+    # Default profile when running locally from the IDE
     active: dev
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+  cloud:
+    config:
+      uri: http://localhost:8888
+      fail-fast: false
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+  cloud:
+    config:
+      uri: http://config-server:8888
+      fail-fast: true
+      retry:
+        initial-interval: 2000
+        max-interval: 10000
+        multiplier: 1.5
+        max-attempts: 30
