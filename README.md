@@ -15,7 +15,8 @@ This service is built using **Spring Cloud Gateway**.
 -   **Unified API Documentation:** Aggregates OpenAPI (Swagger) documentation from all downstream services into a single, convenient UI.
 
 ## Architecture & Request Flow
-<img width="500" height="1500" alt="API-Gateway-Flow" src="https://github.com/user-attachments/assets/8f7c6825-292a-4169-a3dd-b6ef3a8b59a7" />
+
+<img width="500" height="1200" alt="API-Gateway-Flow" src="https://github.com/user-attachments/assets/8f7c6825-292a-4169-a3dd-b6ef3a8b59a7" />
 
 
 ### How It Works
